@@ -65,6 +65,7 @@ type TTSConfig struct {
 // EdgeTTSConfig Edge TTS配置
 type EdgeTTSConfig struct {
 	OutputFormat string
+	APIURL       string // Edge TTS API URL
 }
 
 // AliyunTTSConfig 阿里云TTS配置
@@ -105,6 +106,7 @@ func LoadConfig() *Config {
 			Provider: getEnvOrDefault("TTS_PROVIDER", "edge"),
 			EdgeTTS: EdgeTTSConfig{
 				OutputFormat: getEnvOrDefault("EDGE_TTS_FORMAT", "mp3"),
+				APIURL:       getEnvOrDefault("EDGE_TTS_API_URL", "http://localhost:8000/v1/t2a_v2"),
 			},
 			AliyunTTS: AliyunTTSConfig{
 				AccessKeyID:     getEnvOrDefault("ALIYUN_ACCESS_KEY_ID", ""),

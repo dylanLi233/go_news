@@ -2,6 +2,7 @@ package tts
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hacker-news/config"
@@ -17,6 +18,7 @@ import (
 // EdgeTTS 实现Edge TTS服务
 type EdgeTTS struct {
 	outputFormat string
+	apiURL       string
 }
 
 // VoiceSetting 语音设置
@@ -44,10 +46,17 @@ type TTSRequest struct {
 	AudioSetting AudioSetting `json:"audio_setting"`
 }
 
+// TTSResponse API响应结构
+type TTSResponse struct {
+	Audio string `json:"audio"` // Base64编码的音频
+	SRT   string `json:"srt"`   // SRT字幕
+}
+
 // NewEdgeTTS 创建一个新的Edge TTS服务
 func NewEdgeTTS(cfg config.EdgeTTSConfig) (*EdgeTTS, error) {
 	return &EdgeTTS{
 		outputFormat: cfg.OutputFormat,
+		apiURL:       cfg.APIURL, // 从配置中读取API URL
 	}, nil
 }
 
@@ -80,13 +89,13 @@ func (e *EdgeTTS) SynthesizeSpeech(ctx context.Context, text string, speaker str
 		},
 	}
 
-	// 直接使用Edge TTS API
-	return e.directEdgeTTS(ctx, request)
+	// 使用API服务
+	return e.callTTSAPI(ctx, request)
 }
 
 // SynthesizeSpeechWithOptions 将文本转换为语音（带高级选项）
 func (e *EdgeTTS) SynthesizeSpeechWithOptions(ctx context.Context, request TTSRequest) ([]byte, []byte, error) {
-	audio, srtBytes, err := e.directEdgeTTSWithSRT(ctx, request)
+	audio, srtBytes, err := e.callTTSAPIWithSRT(ctx, request)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,45 +107,41 @@ func (e *EdgeTTS) Provider() string {
 	return "edge"
 }
 
-// directEdgeTTS 直接使用Edge TTS API
-func (e *EdgeTTS) directEdgeTTS(ctx context.Context, request TTSRequest) ([]byte, error) {
-	audio, _, err := e.directEdgeTTSWithSRT(ctx, request)
+// callTTSAPI 调用TTS API
+func (e *EdgeTTS) callTTSAPI(ctx context.Context, request TTSRequest) ([]byte, error) {
+	audio, _, err := e.callTTSAPIWithSRT(ctx, request)
 	return audio, err
 }
 
-// directEdgeTTSWithSRT 直接使用Edge TTS API并生成SRT字幕
-func (e *EdgeTTS) directEdgeTTSWithSRT(ctx context.Context, request TTSRequest) ([]byte, []byte, error) {
-	// 使用微软官方Edge TTS服务
-	baseURL := "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1"
-
-	// 构建SSML文本
-	ssml := fmt.Sprintf(`
-<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-CN">
-	<voice name="%s">
-		<prosody rate="%d%%" pitch="%d%%">%s</prosody>
-	</voice>
-</speak>`, 
-	request.VoiceSetting.VoiceID, 
-	int((request.VoiceSetting.Speed-1.0)*100), 
-	int(request.VoiceSetting.Pitch*100), 
-	escapeXML(request.Text))
-
+// callTTSAPIWithSRT 调用TTS API并获取SRT字幕
+func (e *EdgeTTS) callTTSAPIWithSRT(ctx context.Context, request TTSRequest) ([]byte, []byte, error) {
+	// 确保请求中包含获取SRT的参数
+	request.GetSRT = true
+	
+	// 准备请求JSON
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+	
+	log.Printf("发送TTS请求到API: %s", e.apiURL)
+	
 	// 创建HTTP请求
-	req, err := http.NewRequestWithContext(ctx, "POST", baseURL, strings.NewReader(ssml))
+	req, err := http.NewRequestWithContext(ctx, "POST", e.apiURL, strings.NewReader(string(requestBody)))
 	if err != nil {
 		return nil, nil, fmt.Errorf("创建请求失败: %w", err)
 	}
-
+	
 	// 设置请求头
-	outputFormat := e.outputFormat
-	if request.AudioSetting.Format != "" {
-		outputFormat = request.AudioSetting.Format
-	}
-	req.Header.Set("Content-Type", "application/ssml+xml")
-	req.Header.Set("X-Microsoft-OutputFormat", outputFormat)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36 Edg/93.0.961.47")
-	req.Header.Set("Origin", "https://speech.platform.bing.com")
-
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	
+	// 添加URL参数
+	q := req.URL.Query()
+	q.Add("group_id", "hacker-news")
+	q.Add("return_srt", "true")
+	req.URL.RawQuery = q.Encode()
+	
 	// 发送请求
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -144,29 +149,47 @@ func (e *EdgeTTS) directEdgeTTSWithSRT(ctx context.Context, request TTSRequest) 
 		return nil, nil, fmt.Errorf("发送请求失败: %w", err)
 	}
 	defer resp.Body.Close()
-
+	
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Printf("TTS API响应错误: %s", string(respBody))
 		return nil, nil, fmt.Errorf("TTS请求失败，状态码: %d", resp.StatusCode)
 	}
-
+	
 	// 读取响应内容
-	audio, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("读取响应内容失败: %w", err)
 	}
-
+	
+	// 解析JSON响应
+	var ttsResponse TTSResponse
+	if err := json.Unmarshal(respBody, &ttsResponse); err != nil {
+		return nil, nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	
+	// 解码Base64音频
+	audio, err := base64.StdEncoding.DecodeString(ttsResponse.Audio)
+	if err != nil {
+		return nil, nil, fmt.Errorf("解码音频失败: %w", err)
+	}
+	
 	log.Printf("TTS转换成功，音频大小: %d 字节", len(audio))
 	
-	// 如果需要生成SRT字幕
+	// 处理SRT字幕
 	var srtBytes []byte
-	if request.GetSRT {
+	if ttsResponse.SRT != "" {
+		srtBytes = []byte(ttsResponse.SRT)
+		log.Printf("SRT字幕获取成功，大小: %d 字节", len(srtBytes))
+	} else if request.GetSRT {
+		// 如果API没有返回SRT但请求中要求了SRT，则本地生成
 		srt, err := generateSRT(request.Text)
 		if err != nil {
-			log.Printf("生成SRT字幕失败: %v", err)
+			log.Printf("本地生成SRT字幕失败: %v", err)
 		} else {
 			srtBytes = []byte(srt)
-			log.Printf("SRT字幕生成成功，大小: %d 字节", len(srtBytes))
+			log.Printf("本地生成SRT字幕成功，大小: %d 字节", len(srtBytes))
 		}
 	}
 	

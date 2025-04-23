@@ -101,22 +101,22 @@ docker-compose up -d
 docker-compose ps
 ```
 1. 健康检查接口
-curl http://localhost:6005/health
+curl http://localhost:3001/health
 
 # 获取今天的播客
-curl http://localhost:6005/api/v1/podcast
+curl http://localhost:3001/api/v1/podcast
 
 # 获取指定日期的播客
-curl http://localhost:6005/api/v1/podcast?date=2025-04-20
+curl http://localhost:3001/api/v1/podcast?date=2025-04-20
 
 # 处理当天文章
-curl -X POST http://localhost:6005/api/v1/process \
+curl -X POST http://localhost:3001/api/v1/process \
   -H "Content-Type: application/json" \
   -d '{}'
 
 
 # 处理指定日期的文章，限制数量
-curl -X POST http://localhost:6005/api/v1/process \
+curl -X POST http://localhost:3001/api/v1/process \
   -H "Content-Type: application/json" \
   -d '{"date": "2025-04-20", "maxItems": 5}'
 

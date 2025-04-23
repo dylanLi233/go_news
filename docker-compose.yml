@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    container_name: hacker-news-server
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_PORT=8080
+      - WORKER_ENV=production
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.deepseek.com/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-deepseek-chat}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS:-4096}
+      - TTS_PROVIDER=${TTS_PROVIDER:-edge}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - HACKER_NEWS_R2_BUCKET_URL=http://minio:9000
+      - HACKER_NEWS_BUCKET_NAME=hacker-news
+      - JINA_KEY=${JINA_KEY}
+    depends_on:
+      - minio
+    restart: unless-stopped
+    networks:
+      - hacker-news-network
+    volumes:
+      - ./:/app/config
+    command: ["/app/hacker-news-server"]
+
+  minio:
+    image: minio/minio:latest
+    container_name: hacker-news-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - hacker-news-network
+
+networks:
+  hacker-news-network:
+    driver: bridge
+
+volumes:
+  minio-data:

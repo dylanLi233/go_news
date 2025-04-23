@@ -79,7 +79,7 @@ type AliyunTTSConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnvOrDefault("APP_PORT", "3000"),
+			Port: getEnvOrDefault("APP_PORT", "3001"),
 			Env:  getEnvOrDefault("WORKER_ENV", "production"),
 		},
 		OpenAI: OpenAIConfig{

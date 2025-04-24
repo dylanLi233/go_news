@@ -615,7 +615,7 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 	// 生成播客主内容音频片段并收集
 	var audioSegments [][]byte
 
-	
+
 	for _, conversation := range strings.Split(podcastContent, "\n") {
 		if strings.TrimSpace(conversation) == "" {
 			continue
@@ -667,7 +667,7 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 	}
 
 	// 生成并上传简介音频（intro）
-	introAudio, err := s.ttsService.SynthesizeSpeech(ctx, introContent, "男")
+	_, err := s.ttsService.SynthesizeSpeech(ctx, introContent, "男")
 	if err != nil {
 		log.Printf("生成简介音频失败: %v", err)
 	} 

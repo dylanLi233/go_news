@@ -11,10 +11,21 @@ import (
 	"hacker-news/internal/tts"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"runtime/debug"
+
+	"bufio"
+	"bytes"
+	"encoding/binary"
+	"io"
+	"io/ioutil"
+	"os/exec"
+	"path/filepath"
 )
 
 // Server 是API服务器结构
@@ -597,6 +608,9 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 		
 		log.Printf("音频不存在或强制重新生成，开始生成")
 	}
+
+	// 步骤6: 生成播客音频
+	log.Printf("开始生成播客音频")
 
 	// 生成播客主内容音频片段并收集
 	var audioSegments [][]byte

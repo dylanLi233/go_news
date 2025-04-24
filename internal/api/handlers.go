@@ -625,16 +625,23 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 		if strings.HasPrefix(conversation, "男:") || strings.HasPrefix(conversation, "男：") {
 			speaker = "男"
 		}
+
 		// 日志：原始内容
 		log.Printf("原始对话: %q", conversation)
-	
-		// 优化前缀移除逻辑，兼容中英文冒号
+
+		// 优化前缀移除逻辑，兼容“男:” “女:” “男：” “女：”
 		text := conversation
-		if idx := strings.IndexAny(conversation, ":："); idx != -1 {
-			text = strings.TrimSpace(conversation[idx+1:])
-		}
-		// 日志：处理后内容
-		log.Printf("去前缀后: %q", text)
+	if strings.HasPrefix(conversation, "男:") || strings.HasPrefix(conversation, "女:") {
+		text = strings.TrimSpace(conversation[3:]) // “男:”或“女:”各占3字节
+	} else if strings.HasPrefix(conversation, "男：") || strings.HasPrefix(conversation, "女：") {
+		text = strings.TrimSpace(conversation[4:]) // “男：”或“女：”各占4字节（中文冒号3字节）
+	}
+
+	// 日志：处理后内容
+	log.Printf("去前缀后: %q", text)
+
+
+
 	
 		// 生成语音
 		audio, err := s.ttsService.SynthesizeSpeech(ctx, text, speaker)

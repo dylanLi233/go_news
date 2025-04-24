@@ -644,15 +644,33 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			continue
 		}
 
-		// 上传音频文件
-		audioKey := fmt.Sprintf("audio/%s-%d.mp3", date, i)
-		audioURL, err := s.minioClient.UploadFile(ctx, audioKey, audio, "audio/mpeg")
-		if err != nil {
-			log.Printf("上传音频失败: %v", err)
-			continue
-		}
+		// // 上传音频文件
+		// audioKey := fmt.Sprintf("audio/%s-%d.mp3", date, i)
+		// audioURL, err := s.minioClient.UploadFile(ctx, audioKey, audio, "audio/mpeg")
+		// if err != nil {
+		// 	log.Printf("上传音频失败: %v", err)
+		// 	continue
+		// }
 
 		audioFiles = append(audioFiles, audioURL)
+		// 所有音频片段生成完成后，合并成一个完整文件
+		if len(audioFiles) > 0 {
+			mergedAudio, err := mergeAudioFiles(ctx, audioFiles)
+			if err != nil {
+				log.Printf("合并音频失败: %v", err)
+			} else {
+				mergedAudioKey := fmt.Sprintf("audio/%s-complete.mp3", date)
+				mergedAudioURL, err := s.minioClient.UploadFile(ctx, mergedAudioKey, mergedAudio, "audio/mpeg")
+				if err != nil {
+					log.Printf("上传合并音频失败: %v", err)
+				} else {
+					// 保存合并后的音频URL
+					content.MergedAudioURL = mergedAudioURL
+				}
+			}
+		}
+
+
 	}
 
 	// 生成简介音频

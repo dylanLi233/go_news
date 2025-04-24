@@ -610,15 +610,20 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 		}
 	}
 
-	// 交替使用男声和女声
-	var audioFiles []string
-	for i, conversation := range filteredConversations {
+
+
+
+
+
+
+
+	// 只收集音频数据，不上传每个片段
+	var audioSegments [][]byte
+	for _, conversation := range filteredConversations {
 		// 跳过空行
 		if strings.TrimSpace(conversation) == "" {
 			continue
 		}
-
-
 
 		// 根据前缀确定说话者
 		speaker := "女" // 默认使用女声
@@ -635,8 +640,6 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			}
 		}
 
-
-
 		// 生成语音
 		audio, err := s.ttsService.SynthesizeSpeech(ctx, text, speaker)
 		if err != nil {
@@ -644,34 +647,38 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			continue
 		}
 
-		// // 上传音频文件
-		// audioKey := fmt.Sprintf("audio/%s-%d.mp3", date, i)
-		// audioURL, err := s.minioClient.UploadFile(ctx, audioKey, audio, "audio/mpeg")
-		// if err != nil {
-		// 	log.Printf("上传音频失败: %v", err)
-		// 	continue
-		// }
+		// 收集音频数据
+		audioSegments = append(audioSegments, audio)
+	}
 
-		audioFiles = append(audioFiles, audioURL)
-		// 所有音频片段生成完成后，合并成一个完整文件
-		if len(audioFiles) > 0 {
-			mergedAudio, err := mergeAudioFiles(ctx, audioFiles)
+	// 合并所有音频片段并上传
+	if len(audioSegments) > 0 {
+		mergedAudio, err := mergeAudioBytes(ctx, audioSegments)
+		if err != nil {
+			log.Printf("合并音频失败: %v", err)
+		} else {
+			mergedAudioKey := fmt.Sprintf("audio/%s-complete.mp3", date)
+			mergedAudioURL, err := s.minioClient.UploadFile(ctx, mergedAudioKey, mergedAudio, "audio/mpeg")
 			if err != nil {
-				log.Printf("合并音频失败: %v", err)
+				log.Printf("上传合并音频失败: %v", err)
 			} else {
-				mergedAudioKey := fmt.Sprintf("audio/%s-complete.mp3", date)
-				mergedAudioURL, err := s.minioClient.UploadFile(ctx, mergedAudioKey, mergedAudio, "audio/mpeg")
-				if err != nil {
-					log.Printf("上传合并音频失败: %v", err)
-				} else {
-					// 保存合并后的音频URL
-					content.MergedAudioURL = mergedAudioURL
-				}
+				// 保存合并后的音频URL
+				content.MergedAudioURL = mergedAudioURL
 			}
 		}
-
-
 	}
+
+
+
+
+
+
+
+
+
+
+
+
 
 	// 生成简介音频
 	introAudio, err := s.ttsService.SynthesizeSpeech(ctx, introContent, "男")

@@ -598,39 +598,17 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 		log.Printf("音频不存在或强制重新生成，开始生成")
 	}
 
-	// 步骤6: 生成播客音频
-	log.Printf("开始生成播客音频")
-
-	// 拆分对话内容
-	conversations := strings.Split(podcastContent, "\n")
-	var filteredConversations []string
-	for _, conversation := range conversations {
-		if strings.TrimSpace(conversation) != "" {
-			filteredConversations = append(filteredConversations, conversation)
-		}
-	}
-
-
-
-
-
-
-
-
-	// 只收集音频数据，不上传每个片段
+	// 生成播客主内容音频片段并收集
 	var audioSegments [][]byte
-	for _, conversation := range filteredConversations {
-		// 跳过空行
+	for _, conversation := range strings.Split(podcastContent, "\n") {
 		if strings.TrimSpace(conversation) == "" {
 			continue
 		}
-
 		// 根据前缀确定说话者
-		speaker := "女" // 默认使用女声
+		speaker := "女"
 		if strings.HasPrefix(conversation, "男:") || strings.HasPrefix(conversation, "男：") {
 			speaker = "男"
 		}
-
 		// 移除角色前缀
 		text := conversation
 		if strings.Contains(conversation, ":") {
@@ -639,15 +617,12 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 				text = strings.TrimSpace(parts[1])
 			}
 		}
-
 		// 生成语音
 		audio, err := s.ttsService.SynthesizeSpeech(ctx, text, speaker)
 		if err != nil {
 			log.Printf("生成音频失败: %v", err)
 			continue
 		}
-
-		// 收集音频数据
 		audioSegments = append(audioSegments, audio)
 	}
 
@@ -662,55 +637,31 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			if err != nil {
 				log.Printf("上传合并音频失败: %v", err)
 			} else {
-				// 保存合并后的音频URL
-				content.MergedAudioURL = mergedAudioURL
+				content.AudioURL = mergedAudioURL
 			}
 		}
 	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-	// 生成简介音频
+	// 生成并上传简介音频（intro）
 	introAudio, err := s.ttsService.SynthesizeSpeech(ctx, introContent, "男")
 	if err != nil {
 		log.Printf("生成简介音频失败: %v", err)
 	} else {
-		// 上传简介音频
 		introKey := fmt.Sprintf("audio/%s-intro.mp3", date)
 		introURL, err := s.minioClient.UploadFile(ctx, introKey, introAudio, "audio/mpeg")
 		if err != nil {
 			log.Printf("上传简介音频失败: %v", err)
 		} else {
-			// 将简介放在第一位
-			audioFiles = append([]string{introURL}, audioFiles...)
+			content.AudioFiles = []string{introURL}
 		}
 	}
 
-	log.Printf("音频生成完成，片段数: %d", len(audioFiles))
-
-	// 更新内容对象的音频信息
-	podcastKey := fmt.Sprintf("audio/hacker-news-%s.mp3", date)
-	content.AudioFiles = audioFiles
-	content.AudioURL = podcastKey
-	
-	// 序列化内容
+	// 序列化并上传内容对象
 	contentData, err := json.Marshal(content)
 	if err != nil {
 		log.Printf("序列化内容失败: %v", err)
 		return
 	}
-
-	// 上传更新后的内容
 	_, err = s.minioClient.UploadFile(ctx, contentKey, contentData, "application/json")
 	if err != nil {
 		log.Printf("上传内容失败: %v", err)
@@ -718,4 +669,37 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 	}
 
 	log.Printf("处理完成，日期: %s", date)
+}
+
+func mergeAudioBytes(ctx context.Context, audioSegments [][]byte) ([]byte, error) {
+    tempDir, err := os.MkdirTemp("", "audio-merge")
+    if err != nil {
+        return nil, err
+    }
+    defer os.RemoveAll(tempDir)
+
+    var fileListPath = filepath.Join(tempDir, "filelist.txt")
+    fileList, err := os.Create(fileListPath)
+    if err != nil {
+        return nil, err
+    }
+    defer fileList.Close()
+
+    var segmentFiles []string
+    for i, segment := range audioSegments {
+        segPath := filepath.Join(tempDir, fmt.Sprintf("seg%d.mp3", i))
+        if err := os.WriteFile(segPath, segment, 0644); err != nil {
+            return nil, err
+        }
+        fmt.Fprintf(fileList, "file '%s'\n", segPath)
+        segmentFiles = append(segmentFiles, segPath)
+    }
+    fileList.Sync()
+
+    outPath := filepath.Join(tempDir, "merged.mp3")
+    cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", fileListPath, "-c", "copy", outPath)
+    if err := cmd.Run(); err != nil {
+        return nil, err
+    }
+    return os.ReadFile(outPath)
 }

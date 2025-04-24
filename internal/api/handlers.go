@@ -618,6 +618,14 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			continue
 		}
 
+
+
+		// 根据前缀确定说话者
+		speaker := "女" // 默认使用女声
+		if strings.HasPrefix(conversation, "男:") || strings.HasPrefix(conversation, "男：") {
+			speaker = "男"
+		}
+
 		// 移除角色前缀
 		text := conversation
 		if strings.Contains(conversation, ":") {
@@ -627,13 +635,7 @@ func (s *Server) processHackerNews(date string, maxItems int, force bool, forceA
 			}
 		}
 
-		// 根据索引选择声音
-		var speaker string
-		if i%2 == 0 {
-			speaker = "男"
-		} else {
-			speaker = "女"
-		}
+
 
 		// 生成语音
 		audio, err := s.ttsService.SynthesizeSpeech(ctx, text, speaker)

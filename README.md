@@ -135,13 +135,13 @@ curl http://localhost:6005/audio/some-audio-file.mp3 --output audio.mp3
 
 
 # 仅强制重新生成音频，保留现有内容
-curl -X POST http://localhost:3000/api/v1/process -H "Content-Type: application/json" -d '{"force_audio": true}'
+curl -X POST http://localhost:3001/api/v1/process -H "Content-Type: application/json" -d '{"force_audio": true}'
 
 # 强制重新生成所有内容（包括文章和音频）
-curl -X POST http://localhost:3000/api/v1/process -H "Content-Type: application/json" -d '{"force": true}'
+curl -X POST http://localhost:3001/api/v1/process -H "Content-Type: application/json" -d '{"force": true}'
 
 # 处理特定日期的内容并强制重新生成
-curl -X POST http://localhost:3000/api/v1/process -H "Content-Type: application/json" -d '{"date": "2025-04-19", "force": true}'
+curl -X POST http://localhost:3001/api/v1/process -H "Content-Type: application/json" -d '{"date": "2025-04-19", "force": true}'
 
 
 

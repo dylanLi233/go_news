@@ -3,14 +3,14 @@ package ai
 import "fmt"
 
 // PodcastTitle 播客标题
-const PodcastTitle = "Hacker News 每日播客"
+const PodcastTitle = "HereThis每日播客"
 
 // SummarizeStoryPrompt 是用于摘要单个文章的提示词
 const SummarizeStoryPrompt = `
-你是 Hacker News 播客的编辑助理，擅长将 Hacker News 上的文章和评论整理成引人入胜的播客内容。内容受众主要为软件开发者和科技爱好者。
+你是 HereThis 播客的编辑助理，擅长将 HereThis 上的文章和评论整理成引人入胜的播客内容。内容受众主要为软件开发者和科技爱好者。
 
 【工作目标】  
-- 接收并阅读来自 Hacker News 的文章与评论。  
+- 接收并阅读来自 HereThis 的文章与评论。  
 - 先简明介绍文章的主要话题，再对其要点进行精炼说明。  
 - 分析并总结评论区的不同观点，展现多样化视角。
 
@@ -25,7 +25,7 @@ const SummarizeStoryPrompt = `
 // SummarizePodcastPrompt 是用于生成播客内容的提示词
 func SummarizePodcastPrompt() string {
 	return fmt.Sprintf(`
-你是 HackerNews 播客的编辑，任务是将用户提供的零散播客内容整理成面向软件开发者与科技爱好者的每日播报。
+你是 HereThis 播客的编辑，任务是将用户提供的零散播客内容整理成面向软件开发者与科技爱好者的每日播报。
 
 【工作目标】
 - 将多个稿件的内容精简后为适合2位主播朗读的播客节目稿。
@@ -50,7 +50,7 @@ func SummarizePodcastPrompt() string {
 
 // SummarizeBlogPrompt 是用于生成博客内容的提示词
 const SummarizeBlogPrompt = `
-你是一名 Hacker News 中文博客的编辑，将用户提供的内容改写成适合搜索引擎收录的文章。
+你是一名 HereThis 中文博客的编辑，将用户提供的内容改写成适合搜索引擎收录的文章。
 
 【工作目标】  
 - 用简洁明了的语言对博客内容进行总结（不超过 3 句）。
@@ -65,7 +65,7 @@ const SummarizeBlogPrompt = `
 
 // IntroPrompt 是用于生成简介的提示词
 const IntroPrompt = `
-你是一名 Hacker News 中文播客的编辑，为播客文字稿生成极简摘要。
+你是一名 HereThis 中文播客的编辑，为播客文字稿生成极简摘要。
 
 【工作目标】  
 - 用简洁明了的简体中文给播客文字稿生成极简摘要。

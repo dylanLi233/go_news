@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -63,6 +62,8 @@ func NewEdgeTTS(cfg config.EdgeTTSConfig) (*EdgeTTS, error) {
 // SynthesizeSpeech 将文本转换为语音
 func (e *EdgeTTS) SynthesizeSpeech(ctx context.Context, text string, speaker string) ([]byte, error) {
 	// 根据角色获取语音ID
+	processedText := ProcessDialogueText(text)
+
 	voiceID, err := GetSpeakerVoice("edge", speaker)
 	if err != nil {
 		return nil, err
